@@ -22,7 +22,7 @@ PA-RAG 在物理存储层面将原始文本与高层语义单元完全解耦：
 1. **物理文本块表 $\mathcal{C}$**：保留带有章节层级信息的连续文本：
 $$\mathcal{C} = \{(id_c, node\_id, source\_doc, text_c, \mathbf{v}_c) \mid \mathbf{v}_c \in \mathbb{R}^d\}$$
 2. **命题断言表 $\mathcal{A}$**：存储细粒度事实或观点判断节点：
-$$\mathcal{A} = \left\{(id_a, node\_id, tree\_like, is\_fact, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, is\_fact \in \{0, 1\}\right\}$$
+$$\mathcal{A} = \{(id_a, node\_id, tree\_like, is\_fact, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, is\_fact \in \{0, 1\}\}$$
 ### 2.2 金融意图解构与前置硬约束路由 (Financial Intent Routing)
 对于输入财务问题 $q$，意图模型 $\mathcal{M}_{\text{intent}}$ 通过 Chain-of-Thought (CoT) 输出：
 $$\mathcal{M}_{\text{intent}}(q) \to \{\mathcal{C}_{\text{comp}}, \mathcal{Y}_{\text{years}}, \mathcal{T}_{\text{type}}, \mathcal{Q}_{\text{sub}}\}$$
