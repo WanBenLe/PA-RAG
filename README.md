@@ -20,7 +20,7 @@ Gemini生的
 ### 2.1 双层解耦存储体系 (Decoupled Schema)
 PA-RAG 在物理存储层面将原始文本与高层语义单元完全解耦：
 1. **物理文本块表 $\mathcal{C}$**：保留带有章节层级信息的连续文本：
-$$\mathcal{C} = \left\{(id_c, node\_id, source\_doc, text_c, \mathbf{v}_c) \mid \mathbf{v}_c \in \mathbb{R}^d\right\}$$
+$$\mathcal{C} = \{(id_c, node\_id, source\_doc, text_c, \mathbf{v}_c) \mid \mathbf{v}_c \in \mathbb{R}^d\right\}$$
 2. **命题断言表 $\mathcal{A}$**：存储细粒度事实或观点判断节点：
 $$\mathcal{A} = \left\{(id_a, node\_id, tree\_like, is\_fact, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, is\_fact \in \{0, 1\}\right\}$$
 ### 2.2 金融意图解构与前置硬约束路由 (Financial Intent Routing)
