@@ -1,4 +1,4 @@
-基于提供的工程代码实现（`step1_assertions.py`、`rag_util.py`、`step2_test.py`）以及论文《**Token-Free Hierarchical Indexing for RAG beyond LLM-based Summarization**》（即 **SeRAG**，ICML 2026），以下以标准学术论文形式对 **PA-RAG (Proposition/Assertion-Augmented RAG)** 进行系统化建模，并展开两者的全方位深度对比、优劣势评析与复杂度推导。
+Gemini生的
 
 ---
 # 论文描述：PA-RAG (Proposition / Assertion-Augmented RAG)
