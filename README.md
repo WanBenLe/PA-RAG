@@ -19,47 +19,72 @@ Gemini生的
 ## 2. 核心架构与数学建模 (Methodology)
 ### 2.1 双层解耦存储体系 (Decoupled Schema)
 PA-RAG 在物理存储层面将原始文本与高层语义单元完全解耦：
-1. **物理文本块表 $\mathcal{C}$**：保留带有章节层级信息的连续文本：
-$$\mathcal{C} = \{(id_c, node\_{id}, source\_{doc}, text_c, \mathbf{v}_c) \mid \mathbf{v}_c \in \mathbb{R}^d\}$$
-2. **命题断言表 $\mathcal{A}$**：存储细粒度事实或观点判断节点：
-$$\mathcal{A} = \{(id_a, node\_{id}, tree\\_like, is\\_fact, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, is\\_fact \in \{0, 1\}\}$$
-### 2.2 金融意图解构与前置硬约束路由 (Financial Intent Routing)
-对于输入财务问题q，意图模型
-$$\mathcal{M}_{\text{intent}}$$
-通过 Chain-of-Thought (CoT) 输出：
-$$\mathcal{M}_{\text{intent}}(q) \to \{\mathcal{C}_{\text{comp}}, \mathcal{Y}_{\text{years}}, \mathcal{T}_{\text{type}}, \mathcal{Q}_{\text{sub}}\}$$
-在向量检索引擎（Milvus）中执行**前置元数据硬过滤**：
-$$\mathbb{F}_{\text{filter}} = (is\_fact == \mathcal{T}_{\text{type}}) \wedge (node\_id \sim \mathcal{C}_{\text{comp}}) \wedge \left(\bigvee_{y \in \mathcal{Y}_{\text{years}}} node\_id \sim y\right)$$
-通过在向量检索前下推布尔谓词，物理级屏蔽不同年份和无关实体的干扰。
-### 2.3 动态 $K$-Hop 语义推导树检索 (Dynamic $K$-Hop Frontier Expansion)
-* **Hop 1 初始化**：
-构建查询组 $\mathcal{Q}_1 = \{q\} \cup \mathcal{Q}_{\text{sub}}$，批量编码后在断言表 $\mathcal{A}$ 中搜索候选集 $\mathcal{H}_1$，经 Cross-Encoder 重排后选出 Top 节点构成初始推导前沿 $\mathcal{F}_1$。初始化推导链：
-$$\text{Chain}(a_1) = \text{node\_id}(a_1) \oplus ": " \oplus tree\_like(a_1)$$
-* **Hop $k$ 迭代 ($2 \le k \le K$)**：
-以前一步前沿节点为背景上下文生成新查询：
-$$q_k^{(i)} = q \oplus \text{" Background: "} \oplus tree\_like(a_{k-1}^{(i)})$$
-检索得到候选集后，递归扩展因果链：
-$$\text{Chain}(a_k) \leftarrow [a_k \to \text{Chain}(a_{k-1})]$$
-持续维护全局唯一推导树节点集 $\mathcal{T}_{\text{global}} = \bigcup_{k=1}^K \mathcal{F}_k$。
-### 2.4 行号拓扑连通聚类与局部平滑 (Topological Bridging & Filtering)
-利用推导节点反查其对应的物理行号序列 $\mathcal{L} = \{LN_i\}$：
-1. **单遍扫描状态机聚类 (Bridge Hit Chunks)**：
-若两行号差 $\Delta = LN_{i+1} - LN_i \le \text{max\_gap}$（默认 4），则合并区间为 $[LN_{\text{start}} - \text{padding}, LN_{\text{end}} + \text{padding}]$。
-2. **局部窗口评分与衰减滤波**：
-对合并区间内的切片 $c_i$，结合语义相似度、锚点命中与行号距离高斯衰减加权：
-$$S(c_i) = \lambda_1 \max(0, \langle \mathbf{v}_{c_i}, \mathbf{v}_q \rangle) + \lambda_2 \mathbb{I}(c_i \in \text{Anchors}) + \lambda_3 \exp\left(-\frac{\min_a \vert{}LN_i - LN_a\vert{}^2}{2\sigma^2}\right)$$
-仅将评分 $S(c_i) \ge \tau$ 的文本块与格式化的全局推导树 $\mathcal{T}_{\text{global}}$ 拼装为最终 Context 输入 LLM。
----
-## 3. PA-RAG 与 SOTA SeRAG 的全方位对比
-对比论文为发表于 **ICML 2026** 的 《**Token-Free Hierarchical Indexing for RAG beyond LLM-based Summarization**》（SeRAG）。
-| 比较维度 | SeRAG (ICML 2026) | PA-RAG (本工程实现) |
-| --- | --- | --- |
-| **核心设计哲学** | **信息论驱动（Information-Theoretic）**：最小化结构熵构建拓扑保真的编码树，无 Token 摘要消耗。 | **会计因果驱动（Reasoning & Logic-Driven）**：解耦断言表征 + 启发式多跳语义树演化 + 行号拓扑桥接。 |
-| **离线建库方式** | 构建语义/逻辑/距离三合一图，通过**结构熵最小化**诱导分层编码树 $\mathcal{T}^*$。 | 提取 PDF 的 Part/Item 元数据，划分连续行号块，解耦构建 chunks 与 assertions 双表。 |
-| **粗粒度聚合机制** | **无 Token 向量聚合 (Token-Free Consolidation)**：基于局部结构熵权重 $W(v \mid \beta)$ 递归汇聚词向量。 | **物理窗口上下文恢复**：通过行号滑动窗口与单遍扫描状态机扩展连通块，保留原文。 |
-| **在线检索范式** | **单遍混合打分 (Single-Pass Scoring)**：结合伪文档自查询、粗粒度社区先验与细粒度实体奖励。 | **迭代式多跳前沿追踪 (Iterative $K$-Hop)**：动态生成 CoT 查询、Cross-Encoder 级联重排。 |
-| **查询适配能力** | 通过单一公式自动适配粗细不同粒度，无显式推理链。 | **显式审计追踪**：在 Context 中注入包含演进步骤的 `derivation_chain`，解释性极强。 |
+1. **物理文本块表 $`\mathcal{C}`$**：保留带有章节层级信息的连续文本：
 
+```math
+\mathcal{C} = \left\{ (id_c, \mathrm{node\_id}, \mathrm{source\_doc}, text_c, \mathbf{v}_c) \mid \mathbf{v}_c \in \mathbb{R}^d \right\}
+```
+
+2. **命题断言表 $`\mathcal{A}`$**：存储细粒度事实或观点判断节点：
+
+```math
+\mathcal{A} = \left\{ (id_a, \mathrm{node\_id}, \mathrm{tree\_like}, \mathrm{is\_fact}, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, \mathrm{is\_fact} \in \{0, 1\} \right\}
+```
+
+### 2.2 金融意图解构与前置硬约束路由 (Financial Intent Routing)
+对于输入财务问题 $`q`$，意图模型 $`\mathcal{M}_{\text{intent}}`$ 通过 Chain-of-Thought (CoT) 输出：
+
+```math
+\mathcal{M}_{\text{intent}}(q) \to \left\{ \mathcal{C}_{\text{comp}}, \mathcal{Y}_{\text{years}}, \mathcal{T}_{\text{type}}, \mathcal{Q}_{\text{sub}} \right\}
+```
+
+在向量检索引擎（Milvus）中执行前置元数据硬过滤：
+
+```math
+\mathbb{F}_{\text{filter}} = (\mathrm{is\_fact} == \mathcal{T}_{\text{type}}) \wedge (\mathrm{node\_id} \sim \mathcal{C}_{\text{comp}}) \wedge \left( \bigvee_{y \in \mathcal{Y}_{\text{years}}} \mathrm{node\_id} \sim y \right)
+```
+
+通过在向量检索前下推布尔谓词，物理级屏蔽不同年份和无关实体的干扰。
+
+### 2.3 动态 $`K`$-Hop 语义推导树检索 (Dynamic $`K`$-Hop Frontier Expansion) - **Hop 1 初始化**：构建查询组 $`\mathcal{Q}_1 = \{q\} \cup \mathcal{Q}_{\text{sub}}`$，批量编码后在断言表 $`\mathcal{A}`$ 中搜索候选集 $`\mathcal{H}_1`$，经 Cross-Encoder 重排后选出 Top 节点构成初始推导前沿 $`\mathcal{F}_1`$。初始化推导链：
+
+```math
+\text{Chain}(a_1) = \mathrm{node\_id}(a_1) \oplus ": " \oplus \mathrm{tree\_like}(a_1)
+```
+
+- **Hop $`k`$ 迭代 ($`2 \le k \le K`$)**：以前一步前沿节点为背景上下文生成新查询：
+
+```math
+q_k^{(i)} = q \oplus \text{" Background: "} \oplus \mathrm{tree\_like}(a_{k-1}^{(i)})
+```
+
+检索得到候选集后，递归扩展因果链：
+
+```math
+\text{Chain}(a_k) \leftarrow \left[ a_k \to \text{Chain}(a_{k-1}) \right]
+```
+
+持续维护全局唯一推导树节点集：
+
+```math
+\mathcal{T}_{\text{global}} = \bigcup_{k=1}^K \mathcal{F}_k
+```
+
+### 2.4 行号拓扑连通聚类与局部平滑 (Topological Bridging & Filtering)
+利用推导节点反查其对应的物理行号序列 $`\mathcal{L} = \{LN_i\}`$：
+1. **单遍扫描状态机聚类 (Bridge Hit Chunks)**：若两行号差满足：
+
+```math
+\Delta = LN_{i+1} - LN_i \le \mathrm{max\_gap}
+```
+
+（默认 4），则合并区间为 $`[LN_{\text{start}} - \mathrm{padding}, LN_{\text{end}} + \mathrm{padding}]`$。  2. **局部窗口评分与衰减滤波**：对合并区间内的切片 $`c_i`$，结合语义相似度、锚点命中与行号距离高斯衰减加权：
+
+```math
+S(c_i) = \lambda_1 \max(0, \langle \mathbf{v}_{c_i}, \mathbf{v}_q \rangle) + \lambda_2 \mathbb{I}(c_i \in \text{Anchors}) + \lambda_3 \exp\left(-\frac{\min_a |LN_i - LN_a|^2}{2\sigma^2}\right)
+```
+
+仅将评分 $`S(c_i) \ge \tau`$ 的文本块与格式化的全局推导树 $`\mathcal{T}_{\text{global}}`$ 拼装为最终 Context 输入 LLM。
 ---
 ## 4. PA-RAG 的优劣势评析 (Strengths & Weaknesses)
 ### 4.1 优势 (Strengths)
