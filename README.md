@@ -78,7 +78,8 @@ q_k^{(i)} = q \oplus \text{" Background: "} \oplus \mathrm{tree\_like}(a_{k-1}^{
 \Delta = LN_{i+1} - LN_i \le \mathrm{max\_gap}
 ```
 
-（默认 4），则合并区间为 $`[LN_{\text{start}} - \mathrm{padding}, LN_{\text{end}} + \mathrm{padding}]`$。  2. **局部窗口评分与衰减滤波**：对合并区间内的切片 $`c_i`$，结合语义相似度、锚点命中与行号距离高斯衰减加权：
+（默认 4），则合并区间为 $`[LN_{\text{start}} - \mathrm{padding}, LN_{\text{end}} + \mathrm{padding}]`$。  
+2. **局部窗口评分与衰减滤波**：对合并区间内的切片 $`c_i`$，结合语义相似度、锚点命中与行号距离高斯衰减加权：
 
 ```math
 S(c_i) = \lambda_1 \max(0, \langle \mathbf{v}_{c_i}, \mathbf{v}_q \rangle) + \lambda_2 \mathbb{I}(c_i \in \text{Anchors}) + \lambda_3 \exp\left(-\frac{\min_a |LN_i - LN_a|^2}{2\sigma^2}\right)
