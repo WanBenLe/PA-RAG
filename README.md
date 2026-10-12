@@ -24,7 +24,9 @@ $$\mathcal{C} = \{(id_c, node\_{id}, source\_{doc}, text_c, \mathbf{v}_c) \mid \
 2. **命题断言表 $\mathcal{A}$**：存储细粒度事实或观点判断节点：
 $$\mathcal{A} = \{(id_a, node\_{id}, tree\\_like, is\\_fact, \mathbf{v}_a) \mid \mathbf{v}_a \in \mathbb{R}^d, is\\_fact \in \{0, 1\}\}$$
 ### 2.2 金融意图解构与前置硬约束路由 (Financial Intent Routing)
-对于输入财务问题 $$q$$，意图模型 $$\mathcal{M}_{\text{intent}}$$ 通过 Chain-of-Thought (CoT) 输出：
+对于输入财务问题 $$q$$，意图模型 
+$$\mathcal{M}_{\text{intent}}$$
+通过 Chain-of-Thought (CoT) 输出：
 $$\mathcal{M}_{\text{intent}}(q) \to \{\mathcal{C}_{\text{comp}}, \mathcal{Y}_{\text{years}}, \mathcal{T}_{\text{type}}, \mathcal{Q}_{\text{sub}}\}$$
 在向量检索引擎（Milvus）中执行**前置元数据硬过滤**：
 $$\mathbb{F}_{\text{filter}} = (is\_fact == \mathcal{T}_{\text{type}}) \wedge (node\_id \sim \mathcal{C}_{\text{comp}}) \wedge \left(\bigvee_{y \in \mathcal{Y}_{\text{years}}} node\_id \sim y\right)$$
